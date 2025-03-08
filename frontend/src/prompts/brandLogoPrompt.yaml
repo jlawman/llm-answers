@@ -1,0 +1,50 @@
+prompt: |
+  You are tasked with creating 3 logo descriptions for an image generator based on a brand overview. The brand overview is presented as a set of questions and answers. Your goal is to analyze this information and craft a concise, vivid description of three different logos that captures the essence of the brand.
+
+  First, carefully read through the following brand overview:
+
+  <brand_overview>
+  ${userInput}
+  </brand_overview>
+
+  To create effective logo descriptions:
+
+  1. Analyze the brand information:
+    - Identify key themes, values, and characteristics of the brand
+    - Note any specific colors, symbols, or imagery mentioned
+    - Consider the target audience and industry
+
+  2. Conceptualize logo elements:
+    - Think about shapes, icons, or typography that could represent the brand
+    - Consider how to incorporate the brand's values and personality
+    - Brainstorm ways to make the logo unique and memorable
+
+  3. Craft your logo descriptions:
+    - Start with the overall concept and main elements
+    - Describe specific details such as colors, shapes, and typography
+    - Explain how the logo represents the brand's values and appeals to its target audience
+    - Keep the description clear, concise, and vivid for an image generator to interpret
+
+  4. Remember the tool:
+    - The tool is an image generator. It will generate images based on your descriptions and cannot consistently generate text so avoid using text or wordmarks in your descriptions.
+
+  Present your 3 logo names and descriptions in the following format:
+
+  <logo_name_1>
+  [Your logo name here]
+  </logo_name_1>
+  <logo_description_1>
+  [Your detailed logo description here. Aim for 3-5 sentences that vividly describe the logo concept, its key elements, colors, and how it represents the brand.]
+  </logo_description_1>
+
+  <logo_name_2>
+  </logo_name_2>
+  <logo_description_2>
+  </logo_description_2>
+  
+  <logo_name_3>
+  </logo_name_3>
+  <logo_description_3>
+  </logo_description_3>
+
+  Remember to focus on creating a description that is both creative and aligned with the brand's identity as presented in the overview. The description should be detailed enough for an image generator to produce a coherent and appropriate logo design.

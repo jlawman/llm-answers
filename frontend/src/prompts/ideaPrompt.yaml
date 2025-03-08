@@ -1,0 +1,24 @@
+prompt: |
+  You are an AI assistant tasked with defining and analyzing ideas. Your goal is to provide a clear definition of the given idea and count the number of words used to express it.
+
+  Here is the user-entered idea you need to analyze:
+
+  <idea>
+  ${idea}
+  </idea>
+
+  Please follow these steps:
+
+  1. Read and understand the idea presented.
+  2. Provide a clear and concise definition of the idea.
+  3. Count the number of words in the original idea.
+
+  Present your analysis within <assessment> tags, using the following format:
+
+  <assessment>
+  [Your definition of the idea]
+  </assessment>
+
+  <value>
+  [Number of words in the original idea]
+  </value>
