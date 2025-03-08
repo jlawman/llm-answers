@@ -6,17 +6,19 @@ import os
 from groq import Groq
 import re
 from google import genai
+from openai import OpenAI
+from google.genai import types
 
 app = FastAPI(
     title="LLM Answers API",
         description="""
         This API provides endpoints for generating answers from LLMs:
     
-    - `/v1/ask-default`: Ask the default model a question (Claude 3.7 Sonnet)
-    - `/v1/ask-cheap`: Ask using a cost-effective model (Gemini)
-    - `/v1/ask-thinking-fast`: Ask with visible reasoning using a fast model (Groq)
-    - `/v1/ask-thinking`: Ask with visible reasoning (Anthropic Claude)
-    - `/v1/ask-fast`: Ask using a fast model (Groq)
+    - `/v1/ask-default`: Ask the default model a question
+    - `/v1/ask-cheap`: Ask using a cost-effective model       
+    - `/v1/ask-thinking-fast`: Ask with visible reasoning using a fast model
+    - `/v1/ask-thinking`: Ask with visible reasoning
+    - `/v1/ask-fast`: Ask using a fast model 
     
    
     """,
@@ -24,6 +26,12 @@ app = FastAPI(
     docs_url="/",
     redoc_url="/redoc"
 )
+
+FAST_MODEL = ("groq", "llama-3.3-70b-versatile")
+THINKING_FAST_MODEL = ("groq", "deepseek-r1-distill-llama-70b")
+CHEAP_MODEL = ("google", "gemini-2.0-flash")
+THINKING_MODEL = ("anthropic", "claude-3-7-sonnet-20250219")
+DEFAULT_MODEL = ("anthropic", "claude-3-7-sonnet-latest")
 
 def ask_anthropic(prompt: str, model: str, thinking: bool = False, system_prompt: str = None):
     """
@@ -71,7 +79,7 @@ def ask_anthropic(prompt: str, model: str, thinking: bool = False, system_prompt
                 break
         
         # Return both response and thinking separately
-        return {"response": response_content, "thinking": thinking_content}
+        return response_content, thinking_content
     else:
         response_stream = client.messages.create(
             model=model,
@@ -97,9 +105,9 @@ def ask_anthropic(prompt: str, model: str, thinking: bool = False, system_prompt
             elif hasattr(chunk, 'type') and chunk.type == 'message_stop':
                 break
         
-        return response_content
+        return response_content, ""
 
-def ask_groq(prompt: str, model: str, system_prompt: str = None):
+def ask_groq(prompt: str, model: str, system_prompt: str = None, thinking: bool = False):
     """
     Send prompt to Groq.
     """
@@ -115,89 +123,199 @@ def ask_groq(prompt: str, model: str, system_prompt: str = None):
         messages=messages,
         max_tokens=10000
     )
-    return chat_completion.choices[0].message.content
 
-def ask_google(prompt: str, model: str):
+    if thinking:
+        thinking_pattern = re.compile(r'<think>(.*?)</think>', re.DOTALL)
+        thinking_match = thinking_pattern.search(chat_completion)
+        
+        if thinking_match:
+            thinking = thinking_match.group(1).strip()
+            # Remove the thinking section from the response
+            response = thinking_pattern.sub('', chat_completion).strip()
+        else:
+            thinking = ""
+            response = chat_completion
+    else:
+        response = chat_completion
+        thinking = ""
+    return response, thinking
+
+def ask_google(prompt: str, model: str, system_prompt: str = None, thinking: bool = False):
     client = genai.Client(api_key=os.environ['GOOGLE_API_KEY'])
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt)
-    return response.text
+    if thinking:
+        raise HTTPException(status_code=500, detail="No support for thinking in Google")
+
+    if system_prompt:
+        response = client.models.generate_content(
+            model=model,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt),
+            contents=prompt)
+    else:
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt)
+    return response.text, ""
+
+
+def ask_openai(prompt: str, model: str, system_prompt: str = None, thinking: bool = False):
+    client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+
+    messages = [{"role": "user", "content": prompt}]
+
+    if system_prompt:
+        messages.insert(0, {"role": "system", "content": system_prompt})
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages
+    )
+
+    if thinking:
+        response = response.choices[0].message.content
+        thinking = "redacted"
+    else:
+        response = response.choices[0].message.content
+        thinking = ""
+
+    return response, thinking
+
 
 @app.get('/v1/ask-default')
-async def ask_default(prompt: str):
+async def ask_default(prompt: str, system_prompt: str = None):
     """_summary_
     Ask a high quality model.
     """
+    provider, model = DEFAULT_MODEL
+    use_thinking = False
     try:
-       response = ask_anthropic(prompt, "claude-3-7-sonnet-latest", thinking=False)
-       return {
-        "response": response
-       }
+        if provider == "anthropic":
+            response, _ = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "google":
+            response, _ = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "groq":
+            response, _ = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "openai":
+            response, _ = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        else:
+            raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
+        return {
+            "response": response,
+            "use_thinking": use_thinking,
+            "thinking": "",
+            "provider": provider,
+            "model": model
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 
 @app.get('/v1/ask-cheap')
-async def ask_cheap(prompt: str):
+async def ask_cheap(prompt: str, system_prompt: str = None):
     """_summary_
     Ask a cheap model.
     """
+    provider, model = CHEAP_MODEL
+    use_thinking = False
     try:
-        response = ask_google(prompt, "gemini-2.0-flash")
+        if provider == "google":
+            response, _ = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "groq":
+            response, _ = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "openai":
+            response, _ = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "anthropic":
+            response, _ = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        else:
+            raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
         return {
-            "response": response
+            "response": response,
+            "use_thinking": use_thinking,
+            "thinking": "",
+            "provider": provider,
+            "model": model
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 
 @app.get('/v1/ask-thinking-fast')
-async def ask_thinking_fast(prompt: str):
+async def ask_thinking_fast(prompt: str, system_prompt: str = None):
+    provider, model = THINKING_FAST_MODEL
+    use_thinking = True
     try:
         # Use Groq with thinking
-        response_with_thinking = ask_groq(prompt, "deepseek-r1-distill-llama-70b")
-        print(f"Response with thinking: {response_with_thinking}")
-        # Extract thinking from XML tags if present
-        thinking_pattern = re.compile(r'<think>(.*?)</think>', re.DOTALL)
-        thinking_match = thinking_pattern.search(response_with_thinking)
-        
-        if thinking_match:
-            thinking = thinking_match.group(1).strip()
-            # Remove the thinking section from the response
-            response = thinking_pattern.sub('', response_with_thinking).strip()
+        if provider == "groq":
+            response, thinking = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "anthropic":
+            response, thinking = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "google":
+            response, thinking = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "openai":
+            response, thinking = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
         else:
-            thinking = ""
-            response = response_with_thinking
-
+            raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
+        
         return {
-                "response": response,
-                "thinking": thinking
-            }
+            "response": response,
+            "use_thinking": True,
+            "thinking": thinking,
+            "provider": provider,
+            "model": model
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 @app.get('/v1/ask-thinking')
-async def ask_thinking(prompt: str):
+async def ask_thinking(prompt: str, system_prompt: str = None):
+    provider, model = THINKING_MODEL
+    use_thinking = True
     try:
         # Use Anthropic with thinking
-        result = ask_anthropic(prompt, "claude-3-7-sonnet-20250219", thinking=True)
+        if provider == "anthropic":
+            response, thinking = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "google":
+            response, thinking = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "groq":
+            response, thinking = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        elif provider == "openai":
+            response, thinking = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
+        else:
+            raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
         
-        # For thinking-enabled requests, result is already a dictionary
-        # with "response" and "thinking" keys
-        return result
+        return {
+            "response": response,
+            "use_thinking": use_thinking,
+            "thinking": thinking,
+            "provider": provider,
+            "model": model
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 @app.get('/v1/ask-fast')
 async def ask_fast(prompt: str):
+    provider, model = FAST_MODEL
     try:
         # Use Groq for fast responses
-        response = ask_groq(prompt, "llama-3.3-70b-versatile")
+        if provider == "groq":
+            response, _ = ask_groq(prompt, model)
+        elif provider == "anthropic":
+            response, _ = ask_anthropic(prompt, model)
+        elif provider == "google":
+            response, _ = ask_google(prompt, model)
+        elif provider == "openai":
+            response, _ = ask_openai(prompt, model)
+        else:
+            raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
         
         return {
-            "response": response
+            "response": response,
+            "use_thinking": False,
+            "thinking": "",
+            "provider": provider,
+            "model": model
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
