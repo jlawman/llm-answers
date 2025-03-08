@@ -41,3 +41,5 @@ next-env.d.ts
 /webapp/.next
 /frontend/.next
 /frontend/node_modules
+/backend/__pycache__
+/backend/venv_py312
