@@ -1,3 +1,11 @@
+FAST_MODEL = ("groq", "llama-3.3-70b-versatile")
+THINKING_FAST_MODEL = ("groq", "deepseek-r1-distill-llama-70b")
+CHEAP_MODEL = ("google", "gemini-2.0-flash")
+THINKING_MODEL = ("anthropic", "claude-3-7-sonnet-20250219")
+DEFAULT_MODEL = ("anthropic", "claude-3-7-sonnet-latest")
+########################################################
+
+
 import os
 import time
 import hashlib
@@ -6,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from utils.ask_llms import ask_anthropic, ask_google, ask_groq, ask_openai
+
 
 app = FastAPI(
     title="LLM Answers API",
@@ -30,11 +39,38 @@ request_tracker = {}
     
 auth_scheme = HTTPBearer()
 
-FAST_MODEL = ("groq", "llama-3.3-70b-versatile")
-THINKING_FAST_MODEL = ("groq", "deepseek-r1-distill-llama-70b")
-CHEAP_MODEL = ("google", "gemini-2.0-flash")
-THINKING_MODEL = ("anthropic", "claude-3-7-sonnet-20250219")
-DEFAULT_MODEL = ("anthropic", "claude-3-7-sonnet-latest")
+async def verify_token(token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    # Authentication using the standard approach
+    if token.credentials != os.environ["ENDPOINT_API_KEY"]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized access. Please provide a valid API key.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Rate limiting logic
+    client_id = hashlib.md5(str(token.credentials).encode()).hexdigest()
+    current_time = time.time()
+    
+    if client_id in request_tracker:
+        last_request_time, count = request_tracker[client_id]
+        # Allow 5 requests per minute
+        if current_time - last_request_time < 60:
+            if count >= 5:
+                raise HTTPException(
+                    status_code=429, 
+                    detail="Rate limit exceeded. Try again later."
+                )
+            request_tracker[client_id] = (last_request_time, count + 1)
+        else:
+            request_tracker[client_id] = (current_time, 1)
+    else:
+        request_tracker[client_id] = (current_time, 1)
+    
+    return token
+
+
+
 
 
 
