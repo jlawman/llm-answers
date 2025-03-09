@@ -187,18 +187,19 @@ async def ask_thinking(prompt: str, system_prompt: str = None, token: HTTPAuthor
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 @app.get('/v1/llm/fast')
-async def ask_fast(prompt: str, token: HTTPAuthorizationCredentials = Depends(verify_token)):
+async def ask_fast(prompt: str, system_prompt: str = None, token: HTTPAuthorizationCredentials = Depends(verify_token)):
     provider, model = FAST_MODEL
+    use_thinking = False
     try:
         # Use Groq for fast responses
         if provider == "groq":
-            response, _ = ask_groq(prompt, model)
+            response, _ = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
         elif provider == "anthropic":
-            response, _ = ask_anthropic(prompt, model)
+            response, _ = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
         elif provider == "google":
-            response, _ = ask_google(prompt, model)
+            response, _ = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
         elif provider == "openai":
-            response, _ = ask_openai(prompt, model)
+            response, _ = ask_openai(system_prompt=system_prompt, prompt=prompt, model= model, use_thinking=use_thinking)
         else:
             raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
         
