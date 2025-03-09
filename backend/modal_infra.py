@@ -9,6 +9,7 @@ image = (
     Image.debian_slim()
     .pip_install(["fastapi", "uvicorn", "openai","anthropic", "google-genai", "groq"])
     .add_local_file("main.py", remote_path="/root/main.py")  # Mount main.py
+    .add_local_file("utils/ask_llms.py", remote_path="/root/utils/ask_llms.py")  # Mount utils
 )
 
 # Define the ASGI app (changed from wsgi_app)
