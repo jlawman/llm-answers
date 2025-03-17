@@ -208,7 +208,13 @@ async def llm(request: LLMRequest):
     }
 
     """
+    try:
+        return _process_llm_request(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
+
+def _process_llm_request(request: LLMRequest):
     if request.provider and request.model_name:
         print(f"Provider ({request.provider}) and model name ({request.model_name}) provided:")
     elif request.model_type is None and (request.provider is None or request.model_name is None) or request.model_type == "default":

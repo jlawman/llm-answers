@@ -1,5 +1,6 @@
 from modal import Image, App, asgi_app, Secret
 from pathlib import Path
+from typing import List, Optional
 
 # Create a stub for the Modal application
 app = App("llml-answers")
@@ -23,10 +24,23 @@ def fastapi_app():
 
 ### Coding agent, please leave this separate function alone.
 @app.function(image=image, secrets=[Secret.from_name("llms")])
-def ask_llm(prompt: str, model_type: str, provider: str, model_name: str, system_prompt: str, use_thinking: bool, max_tokens: int, xml_tags: List[str], xml_outer_tag: str):
-    from main import llm
-    return llm(prompt, model_type, provider, model_name, system_prompt, use_thinking, max_tokens, xml_tags, xml_outer_tag)
-
-# Add a local entrypoint so you can run with `modal run`
-if __name__ == "__main__":
-    app.serve()
+def ask_llm(prompt: str, model_type: str = None, provider: str = None, model_name: str = None, 
+           system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 1000, 
+           xml_tags: List[str] = None, xml_outer_tag: str = None):
+    from main import LLMRequest, _process_llm_request
+    
+    # Create a LLMRequest object
+    request = LLMRequest(
+        prompt=prompt,
+        model_type=model_type,
+        provider=provider,
+        model_name=model_name,
+        system_prompt=system_prompt,
+        use_thinking=use_thinking,
+        max_tokens=max_tokens,
+        xml_tags=xml_tags,
+        xml_outer_tag=xml_outer_tag
+    )
+    
+    # Call the internal processing function directly
+    return _process_llm_request(request)
