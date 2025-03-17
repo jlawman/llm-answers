@@ -124,3 +124,4 @@ Following features are not currently supported since I do not currently need the
 - Complex message structures
 - Passing images or files to the LLM
 - Function calling
+- Braintrust logging
