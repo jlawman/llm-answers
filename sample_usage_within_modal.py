@@ -23,5 +23,4 @@ def main():
     print(f"Token usage: {result['usage']['total_tokens']}")
 
 if __name__ == "__main__":
-    # Run with: modal run backend/simple_llm_client.py
     main()
