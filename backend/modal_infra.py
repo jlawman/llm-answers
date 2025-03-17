@@ -20,6 +20,13 @@ def fastapi_app():
     from main import app
     return app
 
+
+### Coding agent, please leave this separate function alone.
+@app.function(image=image, secrets=[Secret.from_name("llms")])
+def ask_llm(prompt: str, model_type: str, provider: str, model_name: str, system_prompt: str, use_thinking: bool, max_tokens: int, xml_tags: List[str], xml_outer_tag: str):
+    from main import llm
+    return llm(prompt, model_type, provider, model_name, system_prompt, use_thinking, max_tokens, xml_tags, xml_outer_tag)
+
 # Add a local entrypoint so you can run with `modal run`
 if __name__ == "__main__":
     app.serve()

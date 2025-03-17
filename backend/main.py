@@ -154,8 +154,8 @@ class LLMRequest(BaseModel):
     model_name: Optional[str] = Field(None, description="Specific model name", example="claude-3-7-sonnet-latest")
     use_thinking: bool = Field(False, description="Whether to show reasoning process")
     max_tokens: int = Field(1000, description="Maximum tokens in response")
-    xml_tags: Optional[List[str]] = Field(None, description="XML tags for structured response", example=["reasoning", "answer"])
-    xml_outer_tag: Optional[str] = Field(None, description="Outer wrapper XML tag", example="response")
+    xml_tags: Optional[List[str]] = Field(None, description="Expected XML tags for structured response", example=["reasoning", "answer"])
+    xml_outer_tag: Optional[str] = Field(None, description="Expected outer wrapper XML tag", example="response")
     
     class Config:
         schema_extra = {
@@ -170,8 +170,8 @@ class LLMRequest(BaseModel):
             }
         }
 
-@app.post('/v1/llm')#, token: HTTPAuthorizationCredentials = Depends(verify_token)
-async def ask_llm(request: LLMRequest):
+@app.post('/v1/llm', dependencies=[Depends(verify_token)])
+async def llm(request: LLMRequest):
     """_summary_
     REQUIRED PARAMETERS:
     - prompt: string       // The query to send to the model
