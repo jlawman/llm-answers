@@ -1,15 +1,11 @@
-from groq import Groq
 import re
-from google import genai
-from openai import OpenAI
-from google.genai import types
-from anthropic import Anthropic
 import os
 
-def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_prompt: str = None):
+def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_prompt: str = None, max_tokens: int = 1000):
     """
     Send prompt to Anthropic.
     """
+    from anthropic import Anthropic
     messages = [{"role": "user", "content": prompt}]
 
     client = Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
@@ -21,7 +17,7 @@ def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_pr
         if system_prompt:
             response_stream = client.beta.messages.create(
                 model=model,
-                max_tokens=128000,
+                max_tokens=max_tokens,
                 thinking={
                     "type": "enabled",
                     "budget_tokens": 32000
@@ -69,7 +65,7 @@ def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_pr
             response_stream = client.messages.create(
                 model=model,
                 messages=messages,
-                max_tokens=10000,
+                max_tokens=max_tokens,
                 system=system_prompt,
                 stream=True  # Enable streaming
             )
@@ -77,7 +73,7 @@ def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_pr
             response_stream = client.messages.create(
                 model=model,
                 messages=messages,
-                max_tokens=10000,
+                max_tokens=max_tokens,
                 stream=True  # Enable streaming
             )
         
@@ -100,10 +96,12 @@ def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_pr
         
         return response_content, ""
 
-def ask_groq(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False):
+def ask_groq(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 1000):
     """
     Send prompt to Groq.
     """
+    from groq import Groq
+
     client = Groq(api_key=os.environ['GROQ_API_KEY'])
 
     messages = [{"role": "user", "content": prompt}]
@@ -133,7 +131,11 @@ def ask_groq(prompt: str, model: str, system_prompt: str = None, use_thinking: b
         thinking = ""
     return response, thinking
 
-def ask_google(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False):
+def ask_google(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 1000):
+    from google.genai import types
+    from google import genai
+
+
     client = genai.Client(api_key=os.environ['GOOGLE_API_KEY'])
 
     if use_thinking:
@@ -143,17 +145,21 @@ def ask_google(prompt: str, model: str, system_prompt: str = None, use_thinking:
         response = client.models.generate_content(
             model=model,
             config=types.GenerateContentConfig(
-                system_instruction=system_prompt),
+                system_instruction=system_prompt,
+                maxOutputTokens=max_tokens),
             contents=prompt)
     else:
         response = client.models.generate_content(
             model=model,
+            config=types.GenerateContentConfig(
+                maxOutputTokens=max_tokens),
             contents=prompt)
     return response.text, ""
 
 
-def ask_openai(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False):
-    
+def ask_openai(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 1000):
+    from openai import OpenAI
+
     client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
 
     messages = [{"role": "user", "content": prompt}]
@@ -163,7 +169,8 @@ def ask_openai(prompt: str, model: str, system_prompt: str = None, use_thinking:
 
     response = client.chat.completions.create(
         model=model,
-        messages=messages
+        messages=messages,
+        max_tokens=max_tokens
     )
 
     if use_thinking:

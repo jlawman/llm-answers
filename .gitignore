@@ -43,3 +43,6 @@ next-env.d.ts
 /frontend/node_modules
 /backend/__pycache__
 /backend/venv_py312
+/backend/venv
+*.pyc
+/backend/utils/__pycache__
