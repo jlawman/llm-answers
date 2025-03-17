@@ -101,6 +101,14 @@ def my_function():
     return result
 ```
 
+### Sample Deployment and Usage from within Modal
+
+First run:
+modal deploy modal_infra.py
+
+Then run:
+modal run sample_usage_within_modal.py 
+
 ## Available Models
 
 Models will change, but here are the current options:
