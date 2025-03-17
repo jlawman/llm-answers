@@ -68,10 +68,9 @@ print(response.json())
 Use the `ask_llm` function directly in your other Modal apps:
 
 ```python
-from modal import App, web_endpoint
-from backend.modal_infra import ask_llm
+import modal
 
-app = App("my-app")
+app = modal.App("my-app")
 
 def my_function():
     ask_llm_function = modal.Function.from_name("llm-answers", "ask_llm")
@@ -94,4 +93,13 @@ Models will change, but here are the current options:
 You can also specify a provider and model name directly instead of using the predefined types.
 
 
+## Features not currently supported
 
+Following features are not currently supported since I do not currently need them for my intended use case of this project.
+
+- Forced JSON output
+- Complex XML structures
+- Streaming responses
+- Complex message structures
+- Passing images or files to the LLM
+- Function calling
