@@ -1,18 +1,12 @@
-# Unified LLM Endpoint and Function within Modal
+# General LLM Endpoint and Function within Modal
 
-A simple API service that provides unified access to multiple LLM providers (Anthropic, Google, Groq, OpenAI) through a single endpoint, deployed using Modal.
-
-## Overview
-
-This project provides:
-1. A FastAPI-based REST API for accessing various LLMs
-2. A Modal function for direct programmatic access within Modal apps
+A simple API service that provides unified access to multiple LLM providers (Anthropic, Google, Groq, OpenAI) through a single endpoint, deployed using Modal. This was built as convenience function for some projects where I wanted to have a simple endpoint to access multiple LLMs and to handle some XML parsing on the output since I found myself writing the same code over and over again for a variety of prototypes/concept projects.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Modal account and CLI set up
+- Modal.com account and CLI set up
 - API keys for the LLM providers you want to use
 
 ### Setup
@@ -34,7 +28,7 @@ This project provides:
 
 4. Deploy to Modal:
    ```
-   modal deploy backend/modal_infra.py
+   modal deploy modal_infra.py
    ```
 
 ## Usage
