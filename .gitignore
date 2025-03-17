@@ -3,7 +3,7 @@
 /.pnp
 .pnp.js
 .yarn/install-state.gz
-
+venv_py312
 # testing
 /coverage
 
