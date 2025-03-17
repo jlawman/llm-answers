@@ -82,6 +82,8 @@ print(response.json())
 }
 ```
 
+Note: the usage values are just a ballpark estimate based on the prompt and response length. Provider values or tiktoken could be added for more accurate estimates.
+
 ### Modal Function
 
 Use the `ask_llm` function directly in your other Modal apps:
