@@ -57,9 +57,9 @@ async def verify_token(token: HTTPAuthorizationCredentials = Depends(auth_scheme
     
     if client_id in request_tracker:
         last_request_time, count = request_tracker[client_id]
-        # Allow 5 requests per minute
+        # Allow 20 requests per minute
         if current_time - last_request_time < 60:
-            if count >= 5:
+            if count >= 20:
                 raise HTTPException(
                     status_code=429, 
                     detail="Rate limit exceeded. Try again later."
