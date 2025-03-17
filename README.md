@@ -2,7 +2,7 @@
 
 A simple API service that provides unified access to multiple LLM providers (Anthropic, Google, Groq, OpenAI) through a single endpoint, deployed using Modal. 
 
-This is intended to be a convenience function for quick access to multiple LLMs and to handle some XML parsing on the output. I also wanted to give quick LLM access to various modal.com projects while adding minimal complexity.
+This is intended to be a convenience function for quick access to multiple LLMs and to parse basic XML output. I also wanted to give quick LLM access to various modal.com projects while adding minimal complexity.
 
 
 ## Getting Started
