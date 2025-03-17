@@ -1,8 +1,0 @@
-prompt: |
-  <brandAnswers>
-  ${userInput}
-  </brandAnswers>
-
-  <instructions>
-  Given these brand answers can you Define the brand guidelines for the brand. Return your answers in <result></result> tags.
-  </instructions>
