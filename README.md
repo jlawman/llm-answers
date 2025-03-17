@@ -1,6 +1,9 @@
 # General LLM Endpoint and Function within Modal
 
-A simple API service that provides unified access to multiple LLM providers (Anthropic, Google, Groq, OpenAI) through a single endpoint, deployed using Modal. This was built as convenience function for some projects where I wanted to have a simple endpoint to access multiple LLMs and to handle some XML parsing on the output since I found myself writing the same code over and over again for a variety of prototypes/concept projects.
+A simple API service that provides unified access to multiple LLM providers (Anthropic, Google, Groq, OpenAI) through a single endpoint, deployed using Modal. 
+
+This was built as convenience function for some projects where I wanted to have a simple endpoint to access multiple LLMs and to handle some XML parsing on the output since I found myself writing the same code over and over again for a variety of prototypes/concept projects. I also wanted to give quick LLM access to some modal.com projects without thinking about the API details or the latest model in each category.
+
 
 ## Getting Started
 
@@ -55,6 +58,26 @@ response = requests.post(
 )
 
 print(response.json())
+```
+
+### Response Object
+
+```json
+{
+    response: string,         // Raw model response text
+    parsed_response: {        // Structured data extracted from XML tags
+        [tag_name]: string      // Content from each requested tag
+    },
+    thinking: string,         // Reasoning output (if enabled)
+    use_thinking: boolean,    // Whether thinking was used
+    provider: string,         // Provider used for this request
+    model: string,            // Specific model used
+    usage: {                  // Token usage statistics (ballpark estimate - opted not to use tiktoken for simplicity and speed but provider values or tiktoken could be added for more accurate estimates)
+        prompt_tokens: integer,
+        completion_tokens: integer,
+        total_tokens: integer
+        }
+    }
 ```
 
 ### Modal Function
