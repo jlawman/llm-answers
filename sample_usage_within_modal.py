@@ -11,7 +11,7 @@ ask_llm_function = modal.Function.from_name("llm-answers", "ask_llm")
 @app.local_entrypoint()
 def main():
     # Call the imported function with a simple prompt
-    result = ask_llm_function.remote(prompt="What 2+2") #Remove can be removed if running modal.
+    result = ask_llm_function.remote(prompt="What 2+2") #Remote can be removed if running modal.
     
     # Print the response
     print("\n=== LLM Response ===")
