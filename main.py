@@ -12,9 +12,12 @@ import hashlib
 import re
 from typing import Dict, List, Optional, Tuple, Any
 
-from fastapi import FastAPI, HTTPException, Depends, status, Body
+from fastapi import FastAPI, HTTPException, Depends, status, Body, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+import hmac
+import secrets
+from datetime import datetime, timedelta
 
 from utils.ask_llms import ask_anthropic, ask_google, ask_groq, ask_openai
 
@@ -26,38 +29,72 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-request_tracker = {}
-
+# Use a more persistent structure with expiry
+class RateLimitStore:
+    def __init__(self):
+        self.store = {}
+        self.last_cleanup = datetime.now()
     
+    def add_request(self, client_id, ip_address):
+        current_time = datetime.now()
+        
+        # Clean up old entries every 10 minutes
+        if (current_time - self.last_cleanup).total_seconds() > 600:
+            self._cleanup()
+            self.last_cleanup = current_time
+        
+        # Create composite key from client_id and IP
+        composite_key = f"{client_id}:{ip_address}"
+        
+        if composite_key in self.store:
+            requests = self.store[composite_key]
+            # Remove requests older than 1 minute
+            current_window = [t for t in requests if (current_time - t).total_seconds() < 60]
+            current_window.append(current_time)
+            self.store[composite_key] = current_window
+            return len(current_window)
+        else:
+            self.store[composite_key] = [current_time]
+            return 1
+    
+    def _cleanup(self):
+        current_time = datetime.now()
+        for key in list(self.store.keys()):
+            self.store[key] = [t for t in self.store[key] if (current_time - t).total_seconds() < 60]
+            if not self.store[key]:
+                del self.store[key]
+
+request_tracker = RateLimitStore()
+
+# Use constant-time comparison for API key validation
+def secure_compare(a, b):
+    return hmac.compare_digest(a, b)
+
 auth_scheme = HTTPBearer()
 
-async def verify_token(token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    # Authentication using the standard approach
-    if token.credentials != os.environ["ENDPOINT_API_KEY"]:
+async def verify_token(request: Request, token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    # Authentication using constant-time comparison to prevent timing attacks
+    if not secure_compare(token.credentials, os.environ["ENDPOINT_API_KEY"]):
+        # Use generic error message
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized access. Please provide a valid API key.",
+            detail="Authentication failed",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Rate limiting logic
+    # Rate limiting with IP + API key
     client_id = hashlib.md5(str(token.credentials).encode()).hexdigest()
-    current_time = time.time()
+    ip_address = request.client.host
     
-    if client_id in request_tracker:
-        last_request_time, count = request_tracker[client_id]
-        # Allow 20 requests per minute
-        if current_time - last_request_time < 60:
-            if count >= 20:
-                raise HTTPException(
-                    status_code=429, 
-                    detail="Rate limit exceeded. Try again later."
-                )
-            request_tracker[client_id] = (last_request_time, count + 1)
-        else:
-            request_tracker[client_id] = (current_time, 1)
-    else:
-        request_tracker[client_id] = (current_time, 1)
+    # Get request count for this client/IP combination
+    request_count = request_tracker.add_request(client_id, ip_address)
+    
+    # Allow 20 requests per minute
+    if request_count > 20:
+        raise HTTPException(
+            status_code=429, 
+            detail="Rate limit exceeded. Try again later."
+        )
     
     return token
 
@@ -142,9 +179,54 @@ class LLMRequest(BaseModel):
     provider: Optional[str] = Field(None, description="LLM provider name", example="anthropic")
     model_name: Optional[str] = Field(None, description="Specific model name", example="claude-3-7-sonnet-latest")
     use_thinking: bool = Field(False, description="Whether to show reasoning process")
-    max_tokens: int = Field(1000, description="Maximum tokens in response")
+    max_tokens: int = Field(1000, description="Maximum tokens in response", ge=1, le=1_000_000)
     xml_tags: Optional[List[str]] = Field(None, description="Expected XML tags for structured response", example=["reasoning", "answer"])
     xml_outer_tag: Optional[str] = Field(None, description="Expected outer wrapper XML tag", example="response")
+    
+    # Add validators for security
+    @validator('prompt')
+    def validate_prompt(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError("Prompt cannot be empty")
+        if len(v) > 250000:  # Reasonable limit
+            raise ValueError("Prompt exceeds maximum length")
+        return v
+    
+    @validator('system_prompt')
+    def validate_system_prompt(cls, v):
+        if v is not None and len(v) > 250000:  # Reasonable limit
+            raise ValueError("System prompt exceeds maximum length")
+        return v
+    
+    @validator('model_type')
+    def validate_model_type(cls, v):
+        if v is not None:
+            valid_types = ["default", "default-thinking", "fast", "fast-thinking", "cheap"]
+            if v not in valid_types:
+                raise ValueError(f"Invalid model type. Must be one of: {', '.join(valid_types)}")
+        return v
+    
+    @validator('provider')
+    def validate_provider(cls, v):
+        if v is not None:
+            valid_providers = ["anthropic", "google", "groq", "openai"]
+            if v not in valid_providers:
+                raise ValueError(f"Invalid provider. Must be one of: {', '.join(valid_providers)}")
+        return v
+    
+    @validator('xml_tags')
+    def validate_xml_tags(cls, v):
+        if v is not None:
+            for tag in v:
+                if not re.match(r'^[a-zA-Z0-9_-]+$', tag):
+                    raise ValueError(f"Invalid XML tag: {tag}. Tags must contain only alphanumeric characters, underscores, and hyphens.")
+        return v
+    
+    @validator('xml_outer_tag')
+    def validate_xml_outer_tag(cls, v):
+        if v is not None and not re.match(r'^[a-zA-Z0-9_-]+$', v):
+            raise ValueError(f"Invalid XML outer tag: {v}. Tags must contain only alphanumeric characters, underscores, and hyphens.")
+        return v
     
     class Config:
         schema_extra = {
@@ -199,8 +281,13 @@ async def llm(request: LLMRequest):
     """
     try:
         return _process_llm_request(request)
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
+        # Log the actual error but return a generic message
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred")
 
 
 def _process_llm_request(request: LLMRequest):
@@ -235,7 +322,8 @@ def _process_llm_request(request: LLMRequest):
         elif request.provider == "openai":
             response, thinking = ask_openai(system_prompt=request.system_prompt, prompt=request.prompt, model=request.model_name, use_thinking=request.use_thinking, max_tokens=request.max_tokens)
         else:
-            raise HTTPException(status_code=500, detail=f"Invalid model: {request.provider}")
+            # Generic error message
+            raise HTTPException(status_code=400, detail="Invalid provider specified")
         
         # Parse the response based on XML tags
         parsed_response = parse_xml_response(response, request.xml_tags, request.xml_outer_tag)
@@ -253,8 +341,13 @@ def _process_llm_request(request: LLMRequest):
             "usage": usage
         }
     
+    except HTTPException:
+        # Re-raise HTTP exceptions as they already have appropriate error details
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+        # Log the actual error for debugging but return a generic message
+        print(f"Error processing request: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred")
 
 
 

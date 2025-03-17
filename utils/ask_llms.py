@@ -1,104 +1,115 @@
 import re
 import os
+import requests.exceptions
+from fastapi import HTTPException
 
 def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_prompt: str = None, max_tokens: int = 1000):
     """
-    Send prompt to Anthropic.
+    Send prompt to Anthropic with timeout.
     """
     from anthropic import Anthropic
     messages = [{"role": "user", "content": prompt}]
 
-    client = Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+    try:
+        # Add timeout to client creation
+        client = Anthropic(
+            api_key=os.environ['ANTHROPIC_API_KEY'],
+        )
     
-    print(f"Messages: {messages}")
 
-    # Using streaming for both request types to avoid timeout issues
-    if use_thinking:
-        thinking_budget_tokens = 32000
-        max_tokens_with_thinking_tokens = max_tokens + thinking_budget_tokens
-        if system_prompt:
-            print("Using default-thinking model with system prompt")
-            response_stream = client.beta.messages.create(
-                model=model,
-                max_tokens=max_tokens_with_thinking_tokens,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": thinking_budget_tokens
-                },
-                messages=messages,
-                system=system_prompt,
-                betas=["output-128k-2025-02-19"],
-                stream=True  # Enable streaming
-            )
-        else:
-            print("Using default-thinking model with no system prompt")
-            response_stream = client.beta.messages.create(
-                model=model,
-                max_tokens=max_tokens_with_thinking_tokens,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": thinking_budget_tokens
-                },
-                messages=messages,
-                betas=["output-128k-2025-02-19"],
-                stream=True  # Enable streaming
-            )
-        
-        # Collect both thinking content and the actual response
-        thinking_content = ""
-        response_content = ""
-        
-        for chunk in response_stream:
-            print(f"Chunk: {chunk}")
+        # Using streaming for both request types to avoid timeout issues
+        if use_thinking:
+            thinking_budget_tokens = 32000
+            max_tokens_with_thinking_tokens = max_tokens + thinking_budget_tokens
+            if system_prompt:
+                print("Using default-thinking model with system prompt")
+                response_stream = client.beta.messages.create(
+                    model=model,
+                    max_tokens=max_tokens_with_thinking_tokens,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": thinking_budget_tokens
+                    },
+                    messages=messages,
+                    system=system_prompt,
+                    betas=["output-128k-2025-02-19"],
+                    stream=True  # Enable streaming
+                )
+            else:
+                print("Using default-thinking model with no system prompt")
+                response_stream = client.beta.messages.create(
+                    model=model,
+                    max_tokens=max_tokens_with_thinking_tokens,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": thinking_budget_tokens
+                    },
+                    messages=messages,
+                    betas=["output-128k-2025-02-19"],
+                    stream=True  # Enable streaming
+                )
             
-            # Extract thinking content from BetaThinkingDelta
-            if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'thinking'):
-                thinking_content += chunk.delta.thinking
+            # Collect both thinking content and the actual response
+            thinking_content = ""
+            response_content = ""
             
-            # Extract text content from BetaTextDelta
-            elif hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
-                response_content += chunk.delta.text
+            for chunk in response_stream:
+                print(f"Chunk: {chunk}")
                 
-            elif hasattr(chunk, 'type') and chunk.type == 'message_stop':
-                break
-        
-        # Return both response and thinking separately
-        return response_content, thinking_content
-    else:
-        if system_prompt:
-            response_stream = client.messages.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                system=system_prompt,
-                stream=True  # Enable streaming
-            )
-        else:
-            response_stream = client.messages.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                stream=True  # Enable streaming
-            )
-        
-        # For non-thinking responses, just collect the text
-        response_content = ""
-        for chunk in response_stream:
-            print(f"Chunk: {chunk}")
+                # Extract thinking content from BetaThinkingDelta
+                if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'thinking'):
+                    thinking_content += chunk.delta.thinking
+                
+                # Extract text content from BetaTextDelta
+                elif hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+                    response_content += chunk.delta.text
+                    
+                elif hasattr(chunk, 'type') and chunk.type == 'message_stop':
+                    break
             
-            # Check if it's a content block delta with text
-            if hasattr(chunk, 'type') and chunk.type == 'content_block_delta':
-                if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
-                    response_content += chunk.delta.text
-            # Alternative check based on class name
-            elif 'RawContentBlockDeltaEvent' in str(type(chunk)):
-                if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
-                    response_content += chunk.delta.text
-            # Stop when the message is complete
-            elif hasattr(chunk, 'type') and chunk.type == 'message_stop':
-                break
-        
-        return response_content, ""
+            # Return both response and thinking separately
+            return response_content, thinking_content
+        else:
+            if system_prompt:
+                response_stream = client.messages.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    system=system_prompt,
+                    stream=True  # Enable streaming
+                )
+            else:
+                response_stream = client.messages.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    stream=True  # Enable streaming
+                )
+            
+            # For non-thinking responses, just collect the text
+            response_content = ""
+            for chunk in response_stream:
+                print(f"Chunk: {chunk}")
+                
+                # Check if it's a content block delta with text
+                if hasattr(chunk, 'type') and chunk.type == 'content_block_delta':
+                    if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+                        response_content += chunk.delta.text
+                # Alternative check based on class name
+                elif 'RawContentBlockDeltaEvent' in str(type(chunk)):
+                    if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text'):
+                        response_content += chunk.delta.text
+                # Stop when the message is complete
+                elif hasattr(chunk, 'type') and chunk.type == 'message_stop':
+                    break
+            
+            return response_content, ""
+    except requests.exceptions.Timeout:
+        print("Request to Anthropic timed out")
+        raise HTTPException(status_code=504, detail="Request to LLM provider timed out")
+    except Exception as e:
+        print(f"Error in Anthropic request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error communicating with LLM provider")
 
 def ask_groq(prompt: str, model: str, system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 1000):
     """
