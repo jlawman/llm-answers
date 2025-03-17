@@ -71,13 +71,13 @@ print(response.json())
         "[tag_name_N]": "string"  
     },
     "thinking": "string",       
-    "use_thinking": boolean,    
+    "use_thinking": "boolean",
     "provider": "string",        
     "model": "string",            
     "usage": {                 
-        "prompt_tokens": integer,
-        "completion_tokens": integer,
-        "total_tokens": integer
+        "prompt_tokens": "integer",
+        "completion_tokens": "integer",
+        "total_tokens": "integer"
     }
 }
 ```
