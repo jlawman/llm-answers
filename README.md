@@ -64,15 +64,17 @@ print(response.json())
 
 ```json
 {
-    "response": "string",         // Raw model response text
-    "parsed_response": {        // Structured data extracted from XML tags
-        "[tag_name]": "string"      // Content from each requested tag
+    "response": "string",       
+    "parsed_response": {        
+        "[tag_name_1]": "string",
+        "[tag_name_2]": "string",
+        "[tag_name_N]": "string"  
     },
-    "thinking": "string",         // Reasoning output (if enabled)
-    "use_thinking": boolean,    // Whether thinking was used
-    "provider": "string",         // Provider used for this request
-    "model": "string",            // Specific model used
-    "usage": {                  // Token usage statistics (ballpark estimate - opted not to use tiktoken for simplicity and speed but provider values or tiktoken could be added for more accurate estimates)
+    "thinking": "string",       
+    "use_thinking": boolean,    
+    "provider": "string",        
+    "model": "string",            
+    "usage": {                 
         "prompt_tokens": integer,
         "completion_tokens": integer,
         "total_tokens": integer
