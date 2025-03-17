@@ -6,7 +6,7 @@ A simple API service that provides unified access to multiple LLM providers (Ant
 
 ### Prerequisites
 
-- Modal.com account and CLI set up
+- A free Modal.com account and CLI set up
 - API keys for the LLM providers you want to use
 
 ### Setup
