@@ -1,7 +1,7 @@
 FAST_MODEL = ("groq", "llama-3.3-70b-versatile")
 THINKING_FAST_MODEL = ("groq", "deepseek-r1-distill-llama-70b")
 CHEAP_MODEL = ("google", "gemini-2.0-flash")
-THINKING_MODEL = ("anthropic", "claude-3-7-sonnet-20250219")
+THINKING_MODEL = ("anthropic", "claude-3-7-sonnet-latest")
 DEFAULT_MODEL = ("anthropic", "claude-3-7-sonnet-latest")
 ########################################################
 
@@ -12,8 +12,9 @@ import hashlib
 import re
 from typing import Dict, List, Optional, Tuple, Any
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field
 
 from utils.ask_llms import ask_anthropic, ask_google, ask_groq, ask_openai
 
@@ -145,17 +146,32 @@ def estimate_token_usage(prompt: str, response: str, provider: str) -> Dict[str,
         "total_tokens": prompt_tokens + completion_tokens
     }
 
-@app.get('/v1/llm')#, token: HTTPAuthorizationCredentials = Depends(verify_token)
-async def ask_llm(prompt: str
-                  , system_prompt: str = None
-                  , model_type: str = None
-                  , provider: str = None
-                  , model_name: str = None
-                  , use_thinking: bool = False
-                  , max_tokens: int = 1000
-                  #, project_name: str = "red-panda-simple"
-                  , xml_tags: list[str] = None
-                  , xml_outer_tag: str = None):
+class LLMRequest(BaseModel):
+    prompt: str = Field(..., description="The query to send to the model", example="What are the key features of Python?")
+    system_prompt: Optional[str] = Field(None, description="Custom system instructions", example="You are a helpful programming assistant specializing in Python.")
+    model_type: Optional[str] = Field(None, description="Model type to use", example="default")
+    provider: Optional[str] = Field(None, description="LLM provider name", example="anthropic")
+    model_name: Optional[str] = Field(None, description="Specific model name", example="claude-3-7-sonnet-latest")
+    use_thinking: bool = Field(False, description="Whether to show reasoning process")
+    max_tokens: int = Field(1000, description="Maximum tokens in response")
+    xml_tags: Optional[List[str]] = Field(None, description="XML tags for structured response", example=["reasoning", "answer"])
+    xml_outer_tag: Optional[str] = Field(None, description="Outer wrapper XML tag", example="response")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "prompt": "What are the key features of Python?",
+                "system_prompt": "You are a helpful programming assistant specializing in Python.",
+                "model_type": "default",
+                "use_thinking": True,
+                "max_tokens": 1000,
+                "xml_tags": ["reasoning", "answer"],
+                "xml_outer_tag": "response"
+            }
+        }
+
+@app.post('/v1/llm')#, token: HTTPAuthorizationCredentials = Depends(verify_token)
+async def ask_llm(request: LLMRequest):
     """_summary_
     REQUIRED PARAMETERS:
     - prompt: string       // The query to send to the model
@@ -168,7 +184,7 @@ async def ask_llm(prompt: str
     - use_thinking: boolean     // Force thinking mode (default: false, auto-true for *-thinking types)
     - temperature: float        // Control randomness (default: 0.7)
     - max_tokens: integer       // Limit response length
-    - project_name: str // Project name for braintrust logging. Defaults to red-panda-simple
+    #- project_name: str // Project name for braintrust logging. Defaults to red-panda-simple
 
     XML FORMATTING (default):
     - xml_tags: string[]        // List of tags for response structure ["reasoning", "answer"]
@@ -193,51 +209,52 @@ async def ask_llm(prompt: str
 
     """
 
-    if provider and model_name:
-        print(f"Provider ({provider}) and model name ({model_name}) provided:")
-    elif model_type is None and (provider is None or model_name is None) or model_type == "default":
-        provider, model_name = DEFAULT_MODEL
-        use_thinking = False
-    elif model_type == "default-thinking":
-        provider, model_name = THINKING_MODEL
-        use_thinking = True
-    elif model_type == "fast":
-        provider, model_name = FAST_MODEL
-        use_thinking = True
-    elif model_type == "fast-thinking":
-        provider, model_name = THINKING_FAST_MODEL
-        use_thinking = True
-    elif model_type == "cheap":
-        provider, model_name = CHEAP_MODEL
-        use_thinking = False
+    if request.provider and request.model_name:
+        print(f"Provider ({request.provider}) and model name ({request.model_name}) provided:")
+    elif request.model_type is None and (request.provider is None or request.model_name is None) or request.model_type == "default":
+        request.provider, request.model_name = DEFAULT_MODEL
+        request.use_thinking = False
+    elif request.model_type == "default-thinking":
+        print("Using default-thinking model")
+        request.provider, request.model_name = THINKING_MODEL
+        request.use_thinking = True
+    elif request.model_type == "fast":
+        request.provider, request.model_name = FAST_MODEL
+        request.use_thinking = False
+    elif request.model_type == "fast-thinking":
+        request.provider, request.model_name = THINKING_FAST_MODEL
+        request.use_thinking = True
+    elif request.model_type == "cheap":
+        request.provider, request.model_name = CHEAP_MODEL
+        request.use_thinking = False
     else:
-        raise HTTPException(status_code=400, detail=f"Invalid model type: {model_type}, with no provider ({provider}) or model_name ({model_name}) provided")
+        raise HTTPException(status_code=400, detail=f"Invalid model type: {request.model_type}, with no provider ({request.provider}) or model_name ({request.model_name}) provided")
 
     try:
-        if provider == "anthropic":
-            response, thinking = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model_name, use_thinking=use_thinking, max_tokens=max_tokens)
-        elif provider == "google":
-            response, thinking = ask_google(system_prompt=system_prompt, prompt=prompt, model=model_name, use_thinking=use_thinking, max_tokens=max_tokens)
-        elif provider == "groq":
-            response, thinking = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model_name, use_thinking=use_thinking, max_tokens=max_tokens)
-        elif provider == "openai":
-            response, thinking = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model_name, use_thinking=use_thinking, max_tokens=max_tokens)
+        if request.provider == "anthropic":
+            response, thinking = ask_anthropic(system_prompt=request.system_prompt, prompt=request.prompt, model=request.model_name, use_thinking=request.use_thinking, max_tokens=request.max_tokens)
+        elif request.provider == "google":
+            response, thinking = ask_google(system_prompt=request.system_prompt, prompt=request.prompt, model=request.model_name, use_thinking=request.use_thinking, max_tokens=request.max_tokens)
+        elif request.provider == "groq":
+            response, thinking = ask_groq(system_prompt=request.system_prompt, prompt=request.prompt, model=request.model_name, use_thinking=request.use_thinking, max_tokens=request.max_tokens)
+        elif request.provider == "openai":
+            response, thinking = ask_openai(system_prompt=request.system_prompt, prompt=request.prompt, model=request.model_name, use_thinking=request.use_thinking, max_tokens=request.max_tokens)
         else:
-            raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
+            raise HTTPException(status_code=500, detail=f"Invalid model: {request.provider}")
         
         # Parse the response based on XML tags
-        parsed_response = parse_xml_response(response, xml_tags, xml_outer_tag)
+        parsed_response = parse_xml_response(response, request.xml_tags, request.xml_outer_tag)
         
         # Estimate token usage
-        usage = estimate_token_usage(prompt, response, provider)
+        usage = estimate_token_usage(request.prompt, response, request.provider)
 
         return {
             "response": response,
             "parsed_response": parsed_response,
-            "use_thinking": use_thinking,
+            "use_thinking": request.use_thinking,
             "thinking": thinking,
-            "provider": provider,
-            "model": model_name,
+            "provider": request.provider,
+            "model": request.model_name,
             "usage": usage
         }
     

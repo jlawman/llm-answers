@@ -14,13 +14,16 @@ def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_pr
 
     # Using streaming for both request types to avoid timeout issues
     if use_thinking:
+        thinking_budget_tokens = 32000
+        max_tokens_with_thinking_tokens = max_tokens + thinking_budget_tokens
         if system_prompt:
+            print("Using default-thinking model with system prompt")
             response_stream = client.beta.messages.create(
                 model=model,
-                max_tokens=max_tokens,
+                max_tokens=max_tokens_with_thinking_tokens,
                 thinking={
                     "type": "enabled",
-                    "budget_tokens": 32000
+                    "budget_tokens": thinking_budget_tokens
                 },
                 messages=messages,
                 system=system_prompt,
@@ -28,12 +31,13 @@ def ask_anthropic(prompt: str, model: str, use_thinking: bool = False, system_pr
                 stream=True  # Enable streaming
             )
         else:
+            print("Using default-thinking model with no system prompt")
             response_stream = client.beta.messages.create(
                 model=model,
-                max_tokens=128000,
+                max_tokens=max_tokens_with_thinking_tokens,
                 thinking={
                     "type": "enabled",
-                    "budget_tokens": 32000
+                    "budget_tokens": thinking_budget_tokens
                 },
                 messages=messages,
                 betas=["output-128k-2025-02-19"],
