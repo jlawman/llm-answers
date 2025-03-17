@@ -21,17 +21,6 @@ from utils.ask_llms import ask_anthropic, ask_google, ask_groq, ask_openai
 
 app = FastAPI(
     title="LLM Answers API",
-        description="""
-        This API provides endpoints for generating answers from LLMs:
-    
-    - `/v1/llm/default`: Ask the default model a question
-    - `/v1/llm/default-thinking`: Ask with visible reasoning
-    - `/v1/llm/cheap`: Ask using a cost-effective model       
-    - `/v1/llm/fast`: Ask using a fast model 
-    - `/v1/llm/fast-thinking`: Ask with visible reasoning using a fast model
-    
-   
-    """,
     version="1.0.0",
     docs_url="/",
     redoc_url="/redoc"

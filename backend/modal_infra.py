@@ -2,8 +2,7 @@ from modal import Image, App, asgi_app, Secret
 from pathlib import Path
 from typing import List, Optional
 
-# Create a stub for the Modal application
-app = App("llml-answers")
+app = App("llm-answers")
 
 # Create an image with Python dependencies
 image = (
