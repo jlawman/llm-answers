@@ -24,7 +24,7 @@ def fastapi_app():
 ### Coding agent, please leave this separate function alone.
 @app.function(image=image, secrets=[Secret.from_name("llms")])
 def ask_llm(prompt: str, model_type: str = None, provider: str = None, model_name: str = None, 
-           system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 1000, 
+           system_prompt: str = None, use_thinking: bool = False, max_tokens: int = 10000, 
            xml_tags: List[str] = None, xml_outer_tag: str = None):
     from main import LLMRequest, _process_llm_request
     

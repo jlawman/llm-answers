@@ -351,144 +351,101 @@ def _process_llm_request(request: LLMRequest):
 
 
 
-# @app.get('/v1/llm/default')
-# async def ask_default(prompt: str, system_prompt: str = None, token: HTTPAuthorizationCredentials = Depends(verify_token)):
-#     """_summary_
-#     Ask a high quality model.
-#     """
-#     provider, model = DEFAULT_MODEL
-#     use_thinking = False
-#     try:
-#         if provider == "anthropic":
-#             response, _ = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "google":
-#             response, _ = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "groq":
-#             response, _ = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "openai":
-#             response, _ = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         else:
-#             raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
-#         return {
-#             "response": response,
-#             "use_thinking": use_thinking,
-#             "thinking": "",
-#             "provider": provider,
-#             "model": model
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+# New endpoint to run 3 LLM queries in parallel
+@app.post('/v1/llm/parallel')
+async def run_parallel_llms(base_page: str = Body(...), directions: str = Body(...)):
+    """
+    Runs three LLM queries in parallel using the provided inputs.
+    
+    Args:
+        base_page: A string prompt that serves as the base page content
+        directions: A string prompt that provides directions for processing
+    """
+    import time
+    from modal_infra import ask_llm
 
 
-# @app.get('/v1/llm/cheap')
-# async def ask_cheap(prompt: str, system_prompt: str = None, token: HTTPAuthorizationCredentials = Depends(verify_token)):
-#     """_summary_
-#     Ask a cheap model.
-#     """
-#     provider, model = CHEAP_MODEL
-#     use_thinking = False
-#     try:
-#         if provider == "google":
-#             response, _ = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "groq":
-#             response, _ = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "openai":
-#             response, _ = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "anthropic":
-#             response, _ = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         else:
-#             raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
-#         return {
-#             "response": response,
-#             "use_thinking": use_thinking,
-#             "thinking": "",
-#             "provider": provider,
-#             "model": model
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+
+    prompts = [
+        f"""<base_page>{base_page}</base_page> 
+
+<instructions>Wow let's make this Next.js 14 app router page look better and have a much improved UX experience! Let's also improve it by creating beautiful components that power it. Use literally any library you want!
+
+Get inspired by TailwindUI, Sonner, Linear, and other people who care about making incredible UX.
+
+Important however, just focus on the look and feel. You can do things like add additional buttons (or nav bar or sections) if the links exist elsewhere on the page. And you can possibly add a tiny bit of text if it makes sense. But DO NOT assume anything that can't be confidently inferred from the original page. (I.e. don't fill in missing text just because it should be there if you don't know what it is.). Don't add explainers of what the page or site does unless you are 200% sure.
+
+Now let's make the page more pleasurable to use
+
+Place your response in the following HTML format.
+
+<response>
+    <html>
+        <body>
+</instructions>""",
+        f"""<base_page>{base_page}</base_page> 
 
 
-# @app.get('/v1/llm/fast-thinking')
-# async def ask_thinking_fast(prompt: str, system_prompt: str = None, token: HTTPAuthorizationCredentials = Depends(verify_token)):
-#     provider, model = THINKING_FAST_MODEL
-#     use_thinking = True
-#     try:
-#         # Use Groq with thinking
-#         if provider == "groq":
-#             response, thinking = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "anthropic":
-#             response, thinking = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "google":
-#             response, thinking = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "openai":
-#             response, thinking = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         else:
-#             raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
-        
-#         return {
-#             "response": response,
-#             "use_thinking": True,
-#             "thinking": thinking,
-#             "provider": provider,
-#             "model": model
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+<instructions>Wow let's make this Next.js 14 app router page look better and have a much improved UX experience! Let's also improve it by creating beautiful components that power it. Use literally any library you want!
 
-# @app.get('/v1/llm/default-thinking')
-# async def ask_thinking(prompt: str, system_prompt: str = None, token: HTTPAuthorizationCredentials = Depends(verify_token)):
-#     provider, model = THINKING_MODEL
-#     use_thinking = True
-#     try:
-#         # Use Anthropic with thinking
-#         if provider == "anthropic":
-#             response, thinking = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "google":
-#             response, thinking = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "groq":
-#             response, thinking = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "openai":
-#             response, thinking = ask_openai(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         else:
-#             raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
-        
-#         return {
-#             "response": response,
-#             "use_thinking": use_thinking,
-#             "thinking": thinking,
-#             "provider": provider,
-#             "model": model
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+Get inspired by TailwindUI, Sonner, Linear, and other people who care about making incredible UX.
 
-# @app.get('/v1/llm/fast')
-# async def ask_fast(prompt: str, system_prompt: str = None, token: HTTPAuthorizationCredentials = Depends(verify_token)):
-#     provider, model = FAST_MODEL
-#     use_thinking = False
-#     try:
-#         # Use Groq for fast responses
-#         if provider == "groq":
-#             response, _ = ask_groq(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "anthropic":
-#             response, _ = ask_anthropic(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "google":
-#             response, _ = ask_google(system_prompt=system_prompt, prompt=prompt, model=model, use_thinking=use_thinking)
-#         elif provider == "openai":
-#             response, _ = ask_openai(system_prompt=system_prompt, prompt=prompt, model= model, use_thinking=use_thinking)
-#         else:
-#             raise HTTPException(status_code=500, detail=f"Invalid model: {provider}")
-        
-#         return {
-#             "response": response,
-#             "use_thinking": False,
-#             "thinking": "",
-#             "provider": provider,
-#             "model": model
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+Make this have immense amount of character.
+
+Everything should be included in one file (even if the original page didn't have that). Place your response in the following HTML format.
+
+<response>
+    <html>
+        <body>
+            <h1>Hello World</h1>
+</instructions>""",
+        f"""<base_page>{base_page}</base_page> 
+
+<instructions>Wow let's make this Next.js 14 app router page look better and have a much improved UX experience! Let's also improve it by creating beautiful components that power it. Use literally any library you want! But let's make it all one page.
+
+Get inspired by TailwindUI and other people who care about making incredible UX.
+
+Now let's make the page more delightful to use
+
+Everything should be included in one file (even if the original page didn't have that). 
+
+Place your response in the following HTML format.
+
+<response>
+    <html>
+        <body>
+            <h1>Hello World</h1>
+        </body>
+    </html>
+</response>
+
+</instructions>"""
+    ]
+
+    # Create inputs as a list of kwargs dictionaries
+    inputs = prompts[:2] #[{"prompt": p, "model_type": "cheap", "xml_outer_tag": "response"} for p in prompts]
+
+    print(f"Running {len(inputs)} LLM queries in parallel...")
+    start_time = time.time()
+
+
+    #inputs = ["Hi", "Hello"]
+    # Use async for loop to consume the generator
+    results_generator = ask_llm.map(inputs)
+    results_list = [result async for result in results_generator]
+
+
+    end_time = time.time()
+    processing_time = end_time - start_time
+
+    return {
+        "processing_time": f"{processing_time:.2f} seconds",
+        "num_queries": len(inputs),
+        "results": results_list,
+        "base_page": base_page[:100] + "..." if len(base_page) > 100 else base_page,
+        "directions": directions[:100] + "..." if len(directions) > 100 else directions
+    }
+
 
 if __name__ == '__main__':
     import uvicorn
